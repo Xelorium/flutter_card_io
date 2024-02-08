@@ -2,8 +2,6 @@ package com.varunvairavan.fluttercardio;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.content.Context;
-import androidx.annotation.NonNull;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -11,8 +9,6 @@ import java.util.Map;
 import io.card.payment.CardIOActivity;
 import io.card.payment.CardType;
 import io.card.payment.CreditCard;
-import io.flutter.embedding.engine.plugins.activity.ActivityAware;
-import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding;
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
@@ -20,43 +16,30 @@ import io.flutter.plugin.common.MethodChannel.Result;
 import io.flutter.plugin.common.PluginRegistry;
 import io.flutter.plugin.common.PluginRegistry.ActivityResultListener;
 import io.flutter.plugin.common.PluginRegistry.Registrar;
-import io.flutter.embedding.engine.plugins.FlutterPlugin;
 
 /**
  * FlutterCardIoPlugin
  */
-public class FlutterCardIoPlugin implements MethodCallHandler, FlutterPlugin, ActivityAware, PluginRegistry.ActivityResultListener {
+public class FlutterCardIoPlugin implements MethodCallHandler, ActivityResultListener {
     private static final int MY_SCAN_REQUEST_CODE = 100;
 
+    private final PluginRegistry.Registrar registrar;
     private Result pendingResult;
     private MethodCall methodCall;
-    private MethodChannel channel;
-    private ActivityPluginBinding activityPluginBinding;
 
-    @Override
-    public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
-        channel = new MethodChannel(flutterPluginBinding.getBinaryMessenger(), "flutter_card_io");
-        channel.setMethodCallHandler(this);
-    }
-
-    @Override
-    public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
-        channel.setMethodCallHandler(null);
+    /**
+     * Plugin registration.
+     */
+    public static void registerWith(Registrar registrar) {
+        final MethodChannel channel = new MethodChannel(registrar.messenger(), "flutter_card_io");
+        FlutterCardIoPlugin instance = new FlutterCardIoPlugin(registrar);
+        registrar.addActivityResultListener(instance);
+        channel.setMethodCallHandler(instance);
     }
 
-    @Override
-    public void onDetachedFromActivity() {}
-    @Override
-    public void onReattachedToActivityForConfigChanges(ActivityPluginBinding activityPluginBinding) {
-        onAttachedToActivity(activityPluginBinding);
+    private FlutterCardIoPlugin(PluginRegistry.Registrar registrar) {
+        this.registrar = registrar;
     }
-    @Override
-    public void onAttachedToActivity(ActivityPluginBinding activityPluginBinding) {
-        activityPluginBinding.addActivityResultListener(this);
-        this.activityPluginBinding = activityPluginBinding;
-    }
-    @Override
-    public void onDetachedFromActivityForConfigChanges() {}
 
     @Override
     public void onMethodCall(MethodCall call, Result result) {
@@ -65,11 +48,17 @@ public class FlutterCardIoPlugin implements MethodCallHandler, FlutterPlugin, Ac
             return;
         }
 
+        Activity activity = registrar.activity();
+        if (activity == null) {
+            result.error("no_activity", "flutter_card_io plugin requires a foreground activity.", null);
+            return;
+        }
+
         pendingResult = result;
         methodCall = call;
 
         if (call.method.equals("scanCard")) {
-            Intent scanIntent = new Intent(this.activityPluginBinding.getActivity(), CardIOActivity.class);
+            Intent scanIntent = new Intent(activity, CardIOActivity.class);
 
             boolean requireExpiry = false;
             if (methodCall.hasArgument("requireExpiry")) {
@@ -152,7 +141,7 @@ public class FlutterCardIoPlugin implements MethodCallHandler, FlutterPlugin, Ac
             scanIntent.putExtra(CardIOActivity.EXTRA_KEEP_APPLICATION_THEME, keepApplicationTheme);
 
             // MY_SCAN_REQUEST_CODE is arbitrary and is only used within this activity.
-            this.activityPluginBinding.getActivity().startActivityForResult(scanIntent, MY_SCAN_REQUEST_CODE);
+            activity.startActivityForResult(scanIntent, MY_SCAN_REQUEST_CODE);
         } else {
             result.notImplemented();
         }

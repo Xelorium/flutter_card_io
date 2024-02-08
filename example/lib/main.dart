@@ -19,7 +19,7 @@ class _MyAppState extends State<MyApp> {
 
   // Platform messages are asynchronous, so we initialize in an async method.
   _scanCard() async {
-    Map<String, dynamic>? details;
+    Map<String, dynamic> details;
     // Platform messages may fail, so we use a try/catch PlatformException.
     try {
       details = await FlutterCardIo.scanCard({
@@ -31,6 +31,7 @@ class _MyAppState extends State<MyApp> {
         "requireCardHolderName": true,
         "scanInstructions": "Hola! Fit the card within the box",
       });
+
     } on PlatformException {
       print("Failed");
       return;
@@ -44,7 +45,7 @@ class _MyAppState extends State<MyApp> {
     if (!mounted) return;
 
     setState(() {
-      _data = details!;
+      _data = details;
     });
   }
 
